@@ -1,6 +1,9 @@
 Nombre: Yenci María Hernández Martínez
+
 Carnet: 0905-23-6756
+
 Repositorio: https://github.com/grupo2-stack1-fase2/fase2-feature1-consulta-publica
+
 Modulo asignado: Consulta pública con captcha.
 
 ---
