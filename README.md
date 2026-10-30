@@ -1,9 +1,6 @@
 Nombre: Yenci María Hernández Martínez
-
 Carnet: 0905-23-6756
-
 Repositorio: https://github.com/grupo2-stack1-fase2/fase2-feature1-consulta-publica
-
 Modulo asignado: Consulta pública con captcha.
 
 ---
@@ -74,7 +71,7 @@ Este repositorio no modifica el monolito.
 | MySQL → Réplica | Replicación de MySQL | Mantener la copia de lectura al día |
 | Navegador → Página de consulta | HTTP | Formulario público |
 | Navegador → Google reCAPTCHA | HTTPS | Obtener el token del captcha |
-| Página de consulta → Servicio de consulta | HTTP / JSON | Enviar número de registro y token |
+| Página de consulta → Servicio de consulta | HTTP / JSON, reenviado por el servidor de Next.js | Enviar número de registro y token |
 | Servicio de consulta → Google `siteverify` | HTTPS | Verificar que el token es legítimo |
 | Servicio de consulta → Réplica MySQL | JDBC `SELECT` | Leer el estado de cuenta |
 | Navegador → BFF del chatbot | HTTP / JSON | Chat público; el navegador no ve la clave del modelo |
@@ -153,9 +150,9 @@ comunidad. El captcha hace inviable ese recorrido a escala.
 ### 2.2 Integración y responsabilidades
 
 ```
-Navegador ──HTTP──▶ Página Next.js ──HTTP/JSON──▶ API Spring Boot ──▶ Réplica MySQL
-    │                                                   │
-    └──HTTPS──▶ Google reCAPTCHA                        └──HTTPS──▶ Google siteverify
+Navegador ──HTTP──▶ Servidor Next.js ──HTTP/JSON──▶ API Spring Boot ──▶ Réplica MySQL
+    │                  (reenvía /api)                       │
+    └──HTTPS──▶ Google reCAPTCHA                            └──HTTPS──▶ Google siteverify
 ```
 
 | Componente | Cómo se integra | Frontera / decisión |
@@ -166,11 +163,20 @@ Navegador ──HTTP──▶ Página Next.js ──HTTP/JSON──▶ API Sprin
 | Frontend Next.js | Llama a la API por HTTP | Nunca accede a la base de datos |
 | Otros módulos | Comparten la réplica | No hay dependencia directa: esta feature no llama al chatbot ni a las colas |
 
-**Por qué este módulo no usa BFF.** El chatbot sí necesita una capa intermedia
-porque maneja conversación, historial y una clave de API que no debe salir del
-servidor. La consulta pública, en cambio, es una sola petición sin estado y su
-único secreto ya vive en el backend. Agregar un BFF aquí sumaría un componente
-que no resuelve ningún problema real.
+**Sobre el reenvío de `/api`.** El navegador no llama al microservicio por su
+dirección y puerto, sino a la misma dirección desde la que cargó la página; el
+servidor de Next.js reenvía internamente todo lo que llega a `/api` hacia
+`localhost:8081`. Esto se hizo para que la aplicación funcione cuando se expone
+por internet: si el navegador apuntara a `localhost:8081`, buscaría ese puerto
+en la máquina de quien abre la página, no en la que corre el servicio.
+
+Conviene precisar que **esto no es un BFF**. Un BFF —como el que usa el
+chatbot— tiene lógica propia: arma peticiones, mantiene conversación y guarda
+claves de API. Este reenvío no hace nada de eso: no transforma la petición, no
+guarda estado y no conoce ningún secreto. Es solo un proxy de una línea de
+configuración. La consulta pública es una sola petición sin estado y su único
+secreto ya vive en el backend, así que una capa con lógica propia no resolvería
+ningún problema real.
 
 ### 2.3 Decisiones técnicas
 
@@ -295,6 +301,29 @@ Content-Type: application/json
 Todos los errores comparten la forma `{ "mensaje": "..." }`, para que el frontend
 los maneje de manera uniforme sin importar de qué servicio provengan.
 
+### 2.5 Cómo exponerlo por internet
+
+Para demostrar la funcionalidad desde un dispositivo que no sea la máquina de
+desarrollo, se expone el frontend con un túnel de Cloudflare. Con el backend y
+el frontend ya levantados, en una tercera terminal:
+
+```bash
+cloudflared tunnel --url http://localhost:3000
+```
+
+El comando imprime una dirección pública terminada en `.trycloudflare.com`.
+Gracias al reenvío de `/api`, basta con exponer el frontend: el microservicio no
+necesita su propio túnel.
+
+Tres detalles que hacen falta para que funcione desde afuera:
+
+- El dominio `trycloudflare.com` debe estar autorizado en la consola de Google
+  reCAPTCHA, además de `localhost`.
+- `CorsConfig` autoriza el patrón `https://*.trycloudflare.com`, porque la
+  dirección cambia en cada ejecución del túnel.
+- El túnel no es un hospedaje: la máquina de desarrollo sigue siendo el
+  servidor, y la dirección deja de funcionar al cerrar las terminales.
+
 ---
 
 ## 3. Estado actual y pendientes
@@ -361,4 +390,14 @@ fase2-feature1-consulta-publica/
 
 ---
 
+## 6. Checklist de entrega
 
+- [x] El README comienza con `Nombre:`, `Carnet:`, `Repositorio:` y `Modulo asignado:`
+- [x] El enlace del campo `Repositorio:` es el mismo que se entrega en la plataforma
+- [x] Repositorio público
+- [x] El código está en la rama principal y es visible al abrir el repositorio
+- [x] Módulo documentado: objetivo, integración, decisión técnica y pruebas
+- [x] Sin contraseñas, tokens ni archivos `.env` en el repositorio
+- [x] Arquitectura de la solución integrada completa, con las cuatro features
+- [x] Diagrama guardado en el repositorio y visible dentro del README
+- [ ] Enlace abierto en ventana privada para verificar README, diagrama y código
