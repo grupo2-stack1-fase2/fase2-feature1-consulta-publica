@@ -1,6 +1,9 @@
 Nombre: Yenci María Hernández Martínez
+
 Carnet: 0905-23-6756
+
 Repositorio: https://github.com/grupo2-stack1-fase2/fase2-feature1-consulta-publica
+
 Modulo asignado: Consulta pública con captcha.
 
 ---
@@ -390,14 +393,3 @@ fase2-feature1-consulta-publica/
 
 ---
 
-## 6. Checklist de entrega
-
-- [x] El README comienza con `Nombre:`, `Carnet:`, `Repositorio:` y `Modulo asignado:`
-- [x] El enlace del campo `Repositorio:` es el mismo que se entrega en la plataforma
-- [x] Repositorio público
-- [x] El código está en la rama principal y es visible al abrir el repositorio
-- [x] Módulo documentado: objetivo, integración, decisión técnica y pruebas
-- [x] Sin contraseñas, tokens ni archivos `.env` en el repositorio
-- [x] Arquitectura de la solución integrada completa, con las cuatro features
-- [x] Diagrama guardado en el repositorio y visible dentro del README
-- [ ] Enlace abierto en ventana privada para verificar README, diagrama y código
