@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const API = "http://localhost:8081/api";
+const API = "/api";
 const SITE_KEY = "6LdusAcuAAAAAJJnHmDSZhyd28H0M7qs0seBODmL";
 
 type EstadoCuenta = {
