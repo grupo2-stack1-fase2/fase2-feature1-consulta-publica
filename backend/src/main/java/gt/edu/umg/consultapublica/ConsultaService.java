@@ -1,16 +1,14 @@
 package gt.edu.umg.consultapublica;
 
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 
 /**
- * Entrega el estado de cuenta de un contador.
- *
- * Por ahora usa datos de prueba en memoria, con la misma forma que tienen
- * los datos reales de AQUORA. Cuando el equipo confirme la conexión a MySQL,
- * solo hay que reemplazar el mapa DATOS por una consulta a la base.
+ * Obtiene el estado de cuenta de un contador leyendo la base del monolito
+ * AQUORA con un usuario restringido a SELECT sobre cuatro tablas.
  */
 @Service
 public class ConsultaService {
@@ -22,19 +20,58 @@ public class ConsultaService {
             int lecturasRegistradas,
             int lecturasSinPagar,
             double montoPendiente,
-            String estado
-    ) {}
+            String estado) {}
 
-    private static final Map<String, EstadoCuenta> DATOS = Map.of(
-        "CT-001", new EstadoCuenta("CT-001", "José Alejandro", "Aldea San Matías", 3, 0, 0.00, "Al día"),
-        "CT-002", new EstadoCuenta("CT-002", "María Elena Pérez", "Los Valle", 4, 1, 400.00, "Pendiente"),
-        "CT-003", new EstadoCuenta("CT-003", "Carlos Morales", "El Tiucal", 2, 2, 750.00, "Pendiente")
-    );
+    /**
+     * Una lectura se considera pendiente cuando no existe ningún pago que la
+     * referencie. Se usa NOT EXISTS en lugar de unir con pagos porque una
+     * lectura con dos pagos registrados se contaría dos veces en el total.
+     */
+    private static final String CONSULTA = """
+            SELECT ct.numero_registro,
+                   cl.nombre AS cliente,
+                   ct.sector,
+                   COUNT(l.id) AS lecturas_registradas,
+                   COALESCE(SUM(CASE WHEN NOT EXISTS (
+                       SELECT 1 FROM pagos p WHERE p.lectura_id = l.id
+                   ) THEN 1 ELSE 0 END), 0) AS lecturas_sin_pagar,
+                   COALESCE(SUM(CASE WHEN NOT EXISTS (
+                       SELECT 1 FROM pagos p WHERE p.lectura_id = l.id
+                   ) THEN l.monto ELSE 0 END), 0) AS monto_pendiente
+            FROM contadores ct
+            JOIN clientes cl ON cl.id = ct.cliente_id
+            LEFT JOIN lecturas l ON l.contador_id = ct.id
+            WHERE ct.numero_registro = ?
+              AND ct.activo = 1
+            GROUP BY ct.id, ct.numero_registro, cl.nombre, ct.sector
+            """;
+
+    private final JdbcTemplate jdbc;
+
+    public ConsultaService(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
 
     public Optional<EstadoCuenta> buscarPorNumeroRegistro(String numeroRegistro) {
-        if (numeroRegistro == null) {
+        if (numeroRegistro == null || numeroRegistro.isBlank()) {
             return Optional.empty();
         }
-        return Optional.ofNullable(DATOS.get(numeroRegistro.trim().toUpperCase()));
+
+        List<EstadoCuenta> filas = jdbc.query(
+                CONSULTA,
+                (rs, fila) -> {
+                    int sinPagar = rs.getInt("lecturas_sin_pagar");
+                    return new EstadoCuenta(
+                            rs.getString("numero_registro"),
+                            rs.getString("cliente"),
+                            rs.getString("sector"),
+                            rs.getInt("lecturas_registradas"),
+                            sinPagar,
+                            rs.getDouble("monto_pendiente"),
+                            sinPagar == 0 ? "Al día" : "Pendiente");
+                },
+                numeroRegistro.trim().toUpperCase());
+
+        return filas.stream().findFirst();
     }
 }
